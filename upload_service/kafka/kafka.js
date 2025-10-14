@@ -10,19 +10,19 @@ const __dirname = path.dirname(__filename);
 class KafkaConfig {
     constructor() {
         this.kafka = new Kafka({
-            clientId: "youtube uploader",
-            brokers: process.env.Password,
+            clientId: "upload-service",
+            brokers: [process.env.KAFKA_BROKER],
             ssl: {
-                ca: [fs.readFileSync(path.resolve(__dirname, "./ca.pem"), "utf-8")],
+                rejectUnauthorized: false, // Disable certificate validation temporarily
             },
             sasl: {
-                username: process.env.AIVEN_USERNAME,
-                password: process.env.pass,
                 mechanism: "plain",
+                username: process.env.KAFKA_USERNAME,
+                password: process.env.KAFKA_PASSWORD,
             },
         });
         this.producer = this.kafka.producer();
-        this.consumer = this.kafka.consumer({ groupId: "youtube-uploader" });
+        this.consumer = this.kafka.consumer({ groupId: "upload-service" });
     }
 
     async produce(topic, messages) {
@@ -45,7 +45,6 @@ class KafkaConfig {
         }
     }
 
-
     async consume(topic, callback) {
         try {
             await this.consumer.connect();
@@ -66,6 +65,5 @@ class KafkaConfig {
         }
     }
 }
-
 
 export default KafkaConfig;

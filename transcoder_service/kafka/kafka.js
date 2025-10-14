@@ -10,33 +10,30 @@ const __dirname = path.dirname(__filename);
 class KafkaConfig {
     constructor() {
         this.kafka = new Kafka({
-            clientId: "youtube uploader",
-            brokers: process.env.Password,
+            clientId: "transcoder-service",
+            brokers: [process.env.KAFKA_BROKER],
             ssl: {
-                ca: [fs.readFileSync(path.resolve(__dirname, "./ca.pem"), "utf-8")],
+                rejectUnauthorized: false, // Disable certificate validation temporarily
             },
             sasl: {
-                username: process.env.AIVEN_USERNAME,
-                password: process.env.pass,
                 mechanism: "plain",
+                username: process.env.KAFKA_USERNAME,
+                password: process.env.KAFKA_PASSWORD,
             },
         });
         this.producer = this.kafka.producer();
-        this.consumer = this.kafka.consumer({ groupId: "youtube-uploader" });
+        this.consumer = this.kafka.consumer({ groupId: "transcoder-service" });
     }
 
     async produce(topic, messages) {
         try {
             await this.producer.connect();
             console.log("Kafka producer connected.");
-
             console.log("Producing messages to topic:", topic, "with payload:", messages);
-
             await this.producer.send({
                 topic: topic,
                 messages: messages,
             });
-
             console.log("Message successfully produced to Kafka.");
         } catch (error) {
             console.error("Error producing messages to Kafka:", error);
@@ -44,7 +41,6 @@ class KafkaConfig {
             await this.producer.disconnect();
         }
     }
-
 
     async consume(topic, callback) {
         try {
@@ -66,6 +62,5 @@ class KafkaConfig {
         }
     }
 }
-
 
 export default KafkaConfig;
