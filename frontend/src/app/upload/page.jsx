@@ -44,91 +44,133 @@ const UploadForm = () => {
   };
 
   const handleUpload = async () => {
-    if (!title || !author) {
-      setError("Title and Author are required fields.");
-      return;
-    }
-
-    if (!selectedFile) {
-      setError("Please select a file to upload.");
-      return;
-    }
-
     try {
-      setLoading(true);
-      setError("");
+      console.log("=== STARTING UPLOAD ===");
+      console.log("File:", file);
+      console.log("Title:", title);
+      console.log("Author:", author);
 
-      const formData = new FormData();
-      formData.append("filename", selectedFile.name);
+      if (!file || !title || !author) {
+        alert("Please fill in all fields");
+        return;
+      }
 
-      const initializeRes = await axios.post(
+      setIsUploading(true);
+
+      const filename = `${Date.now()}-${file.name}`;
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+      console.log("Filename:", filename);
+      console.log("File size:", file.size);
+      console.log("Total chunks:", totalChunks);
+
+      // Step 1: Initialize upload
+      console.log("=== INITIALIZING UPLOAD ===");
+      const initResponse = await axios.post(
         "https://cloud-cast-upload-2.vercel.app/upload/initialize",
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
+        { filename }
       );
 
-      const { uploadId } = initializeRes.data;
-      console.log("Upload id is ", uploadId);
+      const uploadId = initResponse.data.uploadId;
+      console.log("Upload ID:", uploadId);
 
-      const chunkSize = 2 * 1024 * 1024; // 2 MB chunks
-      const totalChunks = Math.ceil(selectedFile.size / chunkSize);
-
-      let start = 0;
-      const uploadPromises = [];
-
-      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const chunk = selectedFile.slice(start, start + chunkSize);
-        start += chunkSize;
+      // Step 2: Upload chunks
+      console.log("=== UPLOADING CHUNKS ===");
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
 
         const chunkFormData = new FormData();
-        chunkFormData.append("filename", selectedFile.name);
         chunkFormData.append("chunk", chunk);
-        chunkFormData.append("totalChunks", totalChunks);
-        chunkFormData.append("chunkIndex", chunkIndex);
+        chunkFormData.append("filename", filename);
+        chunkFormData.append("chunkIndex", i);
         chunkFormData.append("uploadId", uploadId);
 
-        const uploadPromise = axios.post(
+        console.log(`Uploading chunk ${i + 1}/${totalChunks} (${chunk.size} bytes)`);
+
+        await axios.post(
           "https://cloud-cast-upload-2.vercel.app/upload",
           chunkFormData,
           {
             headers: { "Content-Type": "multipart/form-data" },
           }
-        ).then(() => {
-          const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
-          setUploadProgress(progress);
-        });
+        );
 
-        uploadPromises.push(uploadPromise);
+        console.log(`Chunk ${i + 1}/${totalChunks} uploaded successfully`);
+        setUploadProgress(Math.round(((i + 1) / totalChunks) * 90));
       }
 
-      await Promise.all(uploadPromises);
+      // Step 3: Complete upload
+      console.log("=== COMPLETING UPLOAD ===");
+      console.log("Payload:", {
+        filename,
+        totalChunks,
+        uploadId,
+        title,
+        description,
+        author
+      });
 
-      const completeRes = await axios.post(
+      const completeResponse = await axios.post(
         "https://cloud-cast-upload-2.vercel.app/upload/complete",
         {
-          filename: selectedFile.name,
+          filename: filename,
           totalChunks: totalChunks,
           uploadId: uploadId,
           title: title,
           description: description,
           author: author,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          timeout: 60000 // 60 second timeout
         }
       );
 
-      console.log("Upload complete:", completeRes.data);
-      setUploadComplete(true);
-      setLoading(false);
+      console.log("=== UPLOAD COMPLETE ===");
+      console.log("Complete response:", completeResponse.data);
 
-      // Reset form after 2 seconds
-      setTimeout(() => {
-        router.push("/");
-      }, 2000);
+      // Step 4: Publish to Kafka
+      console.log("=== PUBLISHING TO KAFKA ===");
+      try {
+        const kafkaResponse = await axios.post(
+          "https://cloud-cast-upload-2.vercel.app/publish",
+          {
+            title: completeResponse.data.title,
+            url: completeResponse.data.url,
+          },
+          {
+            timeout: 30000 // 30 second timeout
+          }
+        );
+        console.log("Kafka publish response:", kafkaResponse.data);
+      } catch (kafkaError) {
+        console.error("Kafka publish failed (non-critical):", kafkaError);
+        // Don't throw - upload is already complete
+      }
+
+      setUploadProgress(100);
+      alert("Upload successful!");
+
+      // Reset form
+      setFile(null);
+      setTitle("");
+      setDescription("");
+
     } catch (error) {
-      console.error("Error uploading file:", error);
-      setError(error.response?.data?.message || "Upload failed. Please try again.");
-      setLoading(false);
+      console.error("=== UPLOAD FAILED ===");
+      console.error("Error:", error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+
+      alert(`Upload failed: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
