@@ -46,29 +46,30 @@ const UploadForm = () => {
   const handleUpload = async () => {
     try {
       console.log("=== STARTING UPLOAD ===");
-      console.log("File:", file);
+      console.log("File:", selectedFile);
       console.log("Title:", title);
       console.log("Author:", author);
 
-      if (!file || !title || !author) {
-        alert("Please fill in all fields");
+      if (!selectedFile || !title || !author) {
+        setError("Please fill in all required fields");
         return;
       }
 
-      setIsUploading(true);
+      setLoading(true);
+      setError("");
 
-      const filename = `${Date.now()}-${file.name}`;
+      const filename = `${Date.now()}-${selectedFile.name}`;
       const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks
-      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE);
 
       console.log("Filename:", filename);
-      console.log("File size:", file.size);
+      console.log("File size:", selectedFile.size);
       console.log("Total chunks:", totalChunks);
 
       // Step 1: Initialize upload
       console.log("=== INITIALIZING UPLOAD ===");
       const initResponse = await axios.post(
-        "https://cloud-cast-upload-2.vercel.app/upload/initialize",
+        "https://cloud-cast-upload.vercel.app/upload/initialize",
         { filename }
       );
 
@@ -79,8 +80,8 @@ const UploadForm = () => {
       console.log("=== UPLOADING CHUNKS ===");
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunk = file.slice(start, end);
+        const end = Math.min(start + CHUNK_SIZE, selectedFile.size);
+        const chunk = selectedFile.slice(start, end);
 
         const chunkFormData = new FormData();
         chunkFormData.append("chunk", chunk);
@@ -91,7 +92,7 @@ const UploadForm = () => {
         console.log(`Uploading chunk ${i + 1}/${totalChunks} (${chunk.size} bytes)`);
 
         await axios.post(
-          "https://cloud-cast-upload-2.vercel.app/upload",
+          "https://cloud-cast-upload.vercel.app/upload",
           chunkFormData,
           {
             headers: { "Content-Type": "multipart/form-data" },
@@ -104,17 +105,8 @@ const UploadForm = () => {
 
       // Step 3: Complete upload
       console.log("=== COMPLETING UPLOAD ===");
-      console.log("Payload:", {
-        filename,
-        totalChunks,
-        uploadId,
-        title,
-        description,
-        author
-      });
-
       const completeResponse = await axios.post(
-        "https://cloud-cast-upload-2.vercel.app/upload/complete",
+        "https://cloud-cast-upload.vercel.app/upload/complete",
         {
           filename: filename,
           totalChunks: totalChunks,
@@ -127,7 +119,7 @@ const UploadForm = () => {
           headers: {
             "Content-Type": "application/json"
           },
-          timeout: 60000 // 60 second timeout
+          timeout: 60000
         }
       );
 
@@ -138,28 +130,27 @@ const UploadForm = () => {
       console.log("=== PUBLISHING TO KAFKA ===");
       try {
         const kafkaResponse = await axios.post(
-          "https://cloud-cast-upload-2.vercel.app/publish",
+          "https://cloud-cast-upload.vercel.app/publish",
           {
             title: completeResponse.data.title,
             url: completeResponse.data.url,
           },
           {
-            timeout: 30000 // 30 second timeout
+            timeout: 30000
           }
         );
         console.log("Kafka publish response:", kafkaResponse.data);
       } catch (kafkaError) {
         console.error("Kafka publish failed (non-critical):", kafkaError);
-        // Don't throw - upload is already complete
       }
 
       setUploadProgress(100);
-      alert("Upload successful!");
+      setUploadComplete(true);
 
-      // Reset form
-      setFile(null);
-      setTitle("");
-      setDescription("");
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        router.push("/");
+      }, 2000);
 
     } catch (error) {
       console.error("=== UPLOAD FAILED ===");
@@ -168,9 +159,9 @@ const UploadForm = () => {
       console.error("Error response:", error.response?.data);
       console.error("Error status:", error.response?.status);
 
-      alert(`Upload failed: ${error.response?.data?.error || error.message}`);
+      setError(`Upload failed: ${error.response?.data?.error || error.message}`);
     } finally {
-      setIsUploading(false);
+      setLoading(false);
     }
   };
 

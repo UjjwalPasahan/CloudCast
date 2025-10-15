@@ -4,7 +4,7 @@ import multer from 'multer';
 
 const upload = multer({
     limits: {
-        fileSize: 2 * 1024 * 1024 // 2MB limit per chunk (leave some buffer for headers)
+        fileSize: 3 * 1024 * 1024 // 3MB limit per chunk (leave some buffer for headers)
     },
     storage: multer.memoryStorage()
 });
