@@ -95,6 +95,8 @@ export const uploadChunk = async (req, res) => {
 
 // Complete upload
 export const completeUpload = async (req, res) => {
+    let s3, bucketName, completeParams;
+
     try {
         console.log('=== Complete Upload ===');
         console.log('Request Body:', req.body);
@@ -115,14 +117,17 @@ export const completeUpload = async (req, res) => {
             });
         }
 
-        const s3 = new AWS.S3({
+        s3 = new AWS.S3({
             accessKeyId: process.env.AWS_ACCESS_KEY_ID,
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            region: 'eu-north-1'
+            region: 'eu-north-1',
+            httpOptions: {
+                timeout: 300000 // 5 minutes
+            }
         });
-        const bucketName = process.env.AWS_BUCKET;
+        bucketName = process.env.AWS_BUCKET;
 
-        const completeParams = {
+        completeParams = {
             Bucket: bucketName,
             Key: filename,
             UploadId: uploadId,
@@ -157,20 +162,42 @@ export const completeUpload = async (req, res) => {
         console.log('Adding to database...');
         await addVideoDetailsToDB(title, description, author, url);
 
-        console.log('Publishing to Kafka...');
-        await publishToKafka(title, url);
-
-        return res.status(200).json({
+        // Return success immediately - handle Kafka asynchronously
+        res.status(200).json({
             success: true,
             message: "Uploaded successfully!!!",
             url: url
         });
 
+        // Publish to Kafka in background (don't await)
+        // This prevents the serverless function from timing out
+        console.log('Publishing to Kafka (background)...');
+        publishToKafka(title, url).catch(err => {
+            console.error('Failed to publish to Kafka (non-blocking):', err);
+            // You might want to add this to a queue or retry mechanism
+        });
+
     } catch (error) {
         console.error('Error completing upload:', error);
+
+        // If S3 completion failed, try to abort the upload
+        if (s3 && bucketName && completeParams?.UploadId) {
+            try {
+                await s3.abortMultipartUpload({
+                    Bucket: bucketName,
+                    Key: completeParams.Key,
+                    UploadId: completeParams.UploadId
+                }).promise();
+                console.log('Aborted incomplete multipart upload');
+            } catch (abortError) {
+                console.error('Failed to abort upload:', abortError);
+            }
+        }
+
         return res.status(500).json({
             error: 'Upload completion failed',
-            message: error.message
+            message: error.message,
+            details: error.stack
         });
     }
 };
