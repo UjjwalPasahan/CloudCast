@@ -1,6 +1,5 @@
 import AWS from 'aws-sdk';
 import prisma from '../lib/prisma.js';
-import { publishToKafka } from './kafkapublisher.controller.js';
 
 // Initialize upload
 export const initializeUpload = async (req, res) => {
@@ -93,7 +92,7 @@ export const uploadChunk = async (req, res) => {
     }
 };
 
-// Complete upload
+// Complete upload - OPTIMIZED for Vercel timeout
 export const completeUpload = async (req, res) => {
     let s3, bucketName, completeParams;
 
@@ -122,7 +121,7 @@ export const completeUpload = async (req, res) => {
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
             region: 'eu-north-1',
             httpOptions: {
-                timeout: 300000 // 5 minutes
+                timeout: 30000 // 30 seconds
             }
         });
         bucketName = process.env.AWS_BUCKET;
@@ -162,19 +161,13 @@ export const completeUpload = async (req, res) => {
         console.log('Adding to database...');
         await addVideoDetailsToDB(title, description, author, url);
 
-        // Return success immediately - handle Kafka asynchronously
+        // Return success immediately
+        // Frontend will call /publish endpoint separately for Kafka
         res.status(200).json({
             success: true,
             message: "Uploaded successfully!!!",
-            url: url
-        });
-
-        // Publish to Kafka in background (don't await)
-        // This prevents the serverless function from timing out
-        console.log('Publishing to Kafka (background)...');
-        publishToKafka(title, url).catch(err => {
-            console.error('Failed to publish to Kafka (non-blocking):', err);
-            // You might want to add this to a queue or retry mechanism
+            url: url,
+            title: title
         });
 
     } catch (error) {

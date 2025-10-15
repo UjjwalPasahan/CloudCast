@@ -62,7 +62,7 @@ const UploadForm = () => {
       formData.append("filename", selectedFile.name);
 
       const initializeRes = await axios.post(
-        "https://cloud-cast-upload.vercel.app/upload/initialize",
+        "https://cloud-cast-upload-2.vercel.app/upload/initialize",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -90,7 +90,7 @@ const UploadForm = () => {
         chunkFormData.append("uploadId", uploadId);
 
         const uploadPromise = axios.post(
-          "https://cloud-cast-upload.vercel.app/upload",
+          "https://cloud-cast-upload-2.vercel.app/upload",
           chunkFormData,
           {
             headers: { "Content-Type": "multipart/form-data" },
@@ -106,7 +106,7 @@ const UploadForm = () => {
       await Promise.all(uploadPromises);
 
       const completeRes = await axios.post(
-        "https://cloud-cast-upload.vercel.app/upload/complete",
+        "https://cloud-cast-upload-2.vercel.app/upload/complete",
         {
           filename: selectedFile.name,
           totalChunks: totalChunks,
