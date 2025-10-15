@@ -1,8 +1,10 @@
 
 import AWS from 'aws-sdk';
-import { PrismaClient } from '@prisma/client'
+import prisma from '../lib/prisma.js';
+// Instead of: const prisma = new PrismaClient()
+// import { PrismaClient } from '@prisma/client'
 import { publishToKafka } from './kafkapublisher.controller.js';
-const prisma = new PrismaClient()
+// const prisma = new PrismaClient()
 
 // Initialize upload
 export const initializeUpload = async (req, res) => {

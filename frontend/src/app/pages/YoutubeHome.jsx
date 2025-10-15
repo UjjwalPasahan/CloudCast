@@ -12,7 +12,7 @@ const YouTubeHome = () => {
   useEffect(() => {
     const getVideos = async () => {
       try {
-        const res = await axios.get("http://localhost:8082/watch/home");
+        const res = await axios.get("https://cloud-cast-watch.vercel.app/watch/home");
         setVideos(res.data.data || []);
       } catch (error) {
         console.error("Error in fetching videos:", error);
