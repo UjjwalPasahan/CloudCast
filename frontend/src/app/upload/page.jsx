@@ -72,7 +72,7 @@ const UploadForm = () => {
       const { uploadId } = initializeRes.data;
       console.log("Upload id is ", uploadId);
 
-      const chunkSize = 5 * 1024 * 1024; // 5 MB chunks
+      const chunkSize = 2 * 1024 * 1024; // 2 MB chunks
       const totalChunks = Math.ceil(selectedFile.size / chunkSize);
 
       let start = 0;

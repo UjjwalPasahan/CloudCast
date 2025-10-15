@@ -8,11 +8,18 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Increase body size limits
+// CORS configuration - MUST be before routes
 app.use(cors({
-   allowedHeaders: ["*"],
-   origin: "*"
+   origin: '*', // Add your frontend URL
+   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+   allowedHeaders: ['Content-Type', 'Authorization'],
+   credentials: true
 }));
+
+// Handle preflight requests
+app.options('*', cors());
+
+// Increase body size limits
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
