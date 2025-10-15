@@ -59,7 +59,7 @@ const UploadForm = () => {
       setError("");
 
       const filename = `${Date.now()}-${selectedFile.name}`;
-      const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 2MB chunks
       const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE);
 
       console.log("Filename:", filename);
