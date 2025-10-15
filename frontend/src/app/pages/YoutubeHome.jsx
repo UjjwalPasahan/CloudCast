@@ -13,7 +13,7 @@ const YouTubeHome = () => {
     const getVideos = async () => {
       try {
         const res = await axios.get("http://localhost:8082/watch/home");
-        setVideos(res.data);
+        setVideos(res.data.data || []);
       } catch (error) {
         console.error("Error in fetching videos:", error);
       } finally {
