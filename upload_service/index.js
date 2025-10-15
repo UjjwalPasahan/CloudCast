@@ -10,7 +10,7 @@ const port = process.env.PORT || 8080;
 
 // CORS configuration - MUST be before routes
 app.use(cors({
-   origin: '*', // Add your frontend URL
+   origin: '*',
    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
    allowedHeaders: ['Content-Type', 'Authorization'],
    credentials: true
